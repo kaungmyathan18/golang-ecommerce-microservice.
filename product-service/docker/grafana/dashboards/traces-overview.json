@@ -1,0 +1,24 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 0,
+  "links": [],
+  "panels": [
+    {
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 },
+      "id": 1,
+      "options": {
+        "content": "# Traces\n\nOpen **Explore**, pick datasource **Tempo**, and run TraceQL (e.g. `{}`) or search by service. This stack ships OTLP via **otel-collector** → **Tempo** when you generate with OpenTelemetry enabled.",
+        "mode": "markdown"
+      },
+      "title": "How to view traces",
+      "type": "text"
+    }
+  ],
+  "schemaVersion": 38,
+  "tags": ["scaffold", "tempo"],
+  "time": { "from": "now-1h", "to": "now" },
+  "title": "Traces overview (scaffold)",
+  "uid": "scaffold-traces",
+  "version": 1
+}

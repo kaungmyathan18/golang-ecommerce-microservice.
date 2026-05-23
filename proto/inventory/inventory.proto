@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+package inventory;
+
+option go_package = "github.com/kaungmyathan18/golang-ecommerce-microservice/proto/inventory/pb";
+
+service InventoryService {
+  rpc GetStock(GetStockRequest) returns (GetStockResponse);
+  rpc CheckStock(CheckStockRequest) returns (CheckStockResponse);
+  rpc SetStock(SetStockRequest) returns (SetStockResponse);
+  rpc DecrementStock(DecrementStockRequest) returns (DecrementStockResponse);
+  rpc IncrementStock(IncrementStockRequest) returns (IncrementStockResponse);
+}
+
+message GetStockRequest {
+  string product_id = 1;
+}
+
+message GetStockResponse {
+  string product_id = 1;
+  int32 quantity = 2;
+}
+
+message CheckStockRequest {
+  string product_id = 1;
+  int32 quantity = 2;
+}
+
+message CheckStockResponse {
+  bool available = 1;
+  int32 current_stock = 2;
+}
+
+message SetStockRequest {
+  string product_id = 1;
+  int32 quantity = 2;
+}
+
+message SetStockResponse {
+  string product_id = 1;
+  int32 quantity = 2;
+}
+
+message DecrementStockRequest {
+  string product_id = 1;
+  int32 quantity = 2;
+}
+
+message DecrementStockResponse {
+  bool success = 1;
+  int32 remaining_stock = 2;
+}
+
+message IncrementStockRequest {
+  string product_id = 1;
+  int32 quantity = 2;
+}
+
+message IncrementStockResponse {
+  bool success = 1;
+  int32 remaining_stock = 2;
+}

@@ -49,7 +49,7 @@ Each service `go.mod` also carries a `replace` directive pointing to the local `
 
 ## Features
 
-- Database: PostgreSQL (pgx)
-- Cache: Redis
-- Queue: Redis + workers
+- Database: MongoDB
+- Cache: none
+- Queue: none
 - Observability: OTel Prometheus metrics structured logs (zap)

@@ -1,0 +1,27 @@
+.PHONY: proto proto-install e2e scaffold-all
+
+PROTO_DIR := proto/product
+PROTO_OUT := proto/product/pb
+
+proto-install:
+	go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
+proto:
+	@mkdir -p proto/product/pb proto/inventory/pb proto/payment/pb
+	protoc --go_out=proto/product/pb --go_opt=paths=source_relative \
+		--go-grpc_out=proto/product/pb --go-grpc_opt=paths=source_relative \
+		-I proto/product proto/product/product.proto
+	protoc --go_out=proto/inventory/pb --go_opt=paths=source_relative \
+		--go-grpc_out=proto/inventory/pb --go-grpc_opt=paths=source_relative \
+		-I proto/inventory proto/inventory/inventory.proto
+	protoc --go_out=proto/payment/pb --go_opt=paths=source_relative \
+		--go-grpc_out=proto/payment/pb --go-grpc_opt=paths=source_relative \
+		-I proto/payment proto/payment/payment.proto
+
+e2e:
+	@chmod +x scripts/e2e-test.sh
+	@./scripts/e2e-test.sh
+
+scaffold-all:
+	@echo "Run scaffold commands manually - see README"

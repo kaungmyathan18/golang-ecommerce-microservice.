@@ -3,25 +3,29 @@ package main
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	"github.com/kaungmyathan18/golang-ecommerce-microservice/product-service/internal/cache"
 	"github.com/kaungmyathan18/golang-ecommerce-microservice/product-service/internal/config"
-	"github.com/kaungmyathan18/golang-ecommerce-microservice/product-service/internal/database"
+	"github.com/kaungmyathan18/golang-ecommerce-microservice/product-service/internal/inventoryclient"
 	"github.com/kaungmyathan18/golang-ecommerce-microservice/product-service/internal/observability"
-	"github.com/kaungmyathan18/golang-ecommerce-microservice/product-service/internal/queue"
 	"github.com/kaungmyathan18/golang-ecommerce-microservice/product-service/internal/repository"
+	"github.com/kaungmyathan18/golang-ecommerce-microservice/product-service/services/api/internal/grpcserver"
 	"github.com/kaungmyathan18/golang-ecommerce-microservice/product-service/services/api/internal/handler"
 	"github.com/kaungmyathan18/golang-ecommerce-microservice/product-service/services/api/internal/service"
+	pb "github.com/kaungmyathan18/golang-ecommerce-microservice/proto/product/pb"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 )
 
 func main() {
@@ -62,38 +66,27 @@ func main() {
 		logger.Fatal("metrics", zap.Error(err))
 	}
 
-	ctx := context.Background()
-	db, err := database.New(ctx, cfg.Database)
+	ctxM, cancelM := context.WithTimeout(context.Background(), 10*time.Second)
+	mongoClient, err := mongo.Connect(ctxM, options.Client().ApplyURI(cfg.Mongo.URI))
+	cancelM()
 	if err != nil {
-		logger.Fatal("database", zap.Error(err))
+		logger.Fatal("mongo", zap.Error(err))
 	}
-	defer func() { _ = db.Close() }()
-	if cfg.Database.AutoMigrate {
-		if err := database.RunMigrations(ctx, db, cfg.Database.MigrationsPath); err != nil {
-			logger.Fatal("migrate", zap.Error(err))
-		}
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = mongoClient.Disconnect(ctx)
+	}()
+
+	if err := repository.EnsureIndexes(context.Background(), mongoClient, cfg.Mongo.Database); err != nil {
+		logger.Fatal("mongo indexes", zap.Error(err))
 	}
 
-	cacheClient, err := cache.New(cfg.Cache)
-	if err != nil {
-		logger.Fatal("cache", zap.Error(err))
-	}
-	defer func() { _ = cacheClient.Close() }()
-	queueClient, err := queue.New(cfg.Queue)
-	if err != nil {
-		logger.Fatal("queue", zap.Error(err))
-	}
-	defer func() { _ = queueClient.Close() }()
+	repo := repository.NewRepository(mongoClient, cfg.Mongo.Database, logger)
+	inventoryClient := inventoryclient.New(cfg.Inventory.ServiceURL)
+	svc := service.NewCatalogService(repo, inventoryClient, logger, metrics)
 
-	repo := repository.NewProductRepository(db, logger)
-	svc := service.NewProductService(repo, queueClient, logger, metrics)
-
-	health := handler.NewHealthHandler(
-		logger,
-		db,
-		cacheClient,
-		queueClient,
-	)
+	health := handler.NewHealthHandler(logger, mongoClient)
 	api := handler.NewAPIHandler(svc, logger, metrics)
 
 	router := setupRouter(cfg, logger, metrics, health, api)
@@ -106,10 +99,21 @@ func main() {
 		ReadHeaderTimeout: cfg.Server.ReadHeaderTimeout,
 	}
 
-	errCh := make(chan error, 1)
+	grpcSrv := grpc.NewServer()
+	pb.RegisterProductServiceServer(grpcSrv, grpcserver.NewProductServer(svc))
+	grpcLis, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.GRPC.Port))
+	if err != nil {
+		logger.Fatal("grpc listen", zap.Error(err))
+	}
+
+	errCh := make(chan error, 2)
 	go func() {
-		logger.Info("listen", zap.Int("port", cfg.Server.Port))
+		logger.Info("http listen", zap.Int("port", cfg.Server.Port))
 		errCh <- srv.ListenAndServe()
+	}()
+	go func() {
+		logger.Info("grpc listen", zap.Int("port", cfg.GRPC.Port))
+		errCh <- grpcSrv.Serve(grpcLis)
 	}()
 
 	sig := make(chan os.Signal, 1)
@@ -123,6 +127,7 @@ func main() {
 	case <-sig:
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
+		grpcSrv.GracefulStop()
 		_ = srv.Shutdown(ctx)
 	}
 }
@@ -161,9 +166,15 @@ func setupRouter(
 
 	r.Route("/api/v1", func(ar chi.Router) {
 		ar.Use(middleware.Timeout(60 * time.Second))
+		ar.Post("/categories", api.CreateCategory)
+		ar.Get("/categories", api.ListCategories)
+		ar.Put("/categories/{id}", api.UpdateCategory)
+		ar.Delete("/categories/{id}", api.DeleteCategory)
 		ar.Post("/products", api.CreateProduct)
-		ar.Get("/products/{id}", api.GetProduct)
 		ar.Get("/products", api.ListProducts)
+		ar.Get("/products/{id}", api.GetProduct)
+		ar.Put("/products/{id}", api.UpdateProduct)
+		ar.Delete("/products/{id}", api.DeleteProduct)
 	})
 	return r
 }

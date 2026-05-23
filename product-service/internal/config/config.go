@@ -1,7 +1,6 @@
 package config
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/spf13/viper"
@@ -10,12 +9,24 @@ import (
 type Config struct {
 	App      AppConfig
 	Server   ServerConfig
-	Database DatabaseConfig
-	Cache CacheConfig
-	Queue  QueueConfig
-	Worker WorkerConfig
-	Log    LogConfig
-	Otel   OtelConfig
+	GRPC     GRPCConfig
+	Mongo     MongoConfig
+	Inventory InventoryConfig
+	RabbitMQ  RabbitMQConfig
+	Log      LogConfig
+	Otel     OtelConfig
+}
+
+type GRPCConfig struct {
+	Port int
+}
+
+type RabbitMQConfig struct {
+	URL string
+}
+
+type InventoryConfig struct {
+	ServiceURL string
 }
 
 type AppConfig struct {
@@ -43,52 +54,9 @@ type CORSConfig struct {
 	MaxAge           int
 }
 
-type DatabaseConfig struct {
-	Driver          string
-	Host            string
-	Port            int
-	User            string
-	Password        string
-	Name            string
-	SSLMode         string
-	DSN             string
-	MaxOpenConns    int
-	MaxIdleConns    int
-	ConnMaxLifetime time.Duration
-	AutoMigrate     bool
-	MigrationsPath  string
-}
-
-func (c *DatabaseConfig) PostgresDSN() string {
-	return fmt.Sprintf(
-		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
-		c.Host, c.Port, c.User, c.Password, c.Name, c.SSLMode,
-	)
-}
-
-func (c *DatabaseConfig) MySQLDSN() string {
-	return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s",
-		c.User, c.Password, c.Host, c.Port, c.Name,
-	)
-}
-
-type CacheConfig struct {
-	Addr     string
-	Password string
-	DB       int
-}
-
-type QueueConfig struct {
-	RedisAddr     string
-	RedisPassword string
-	RedisDB       int
-	Prefix        string
-}
-
-type WorkerConfig struct {
-	NumWorkers   int
-	PollInterval time.Duration
-	QueueName    string
+type MongoConfig struct {
+	URI      string
+	Database string
 }
 
 type LogConfig struct {
@@ -112,7 +80,7 @@ func DefaultConfig(appName string) *Config {
 			Environment: getEnv("APP_ENV", "development"),
 		},
 		Server: ServerConfig{
-			Port:              8080,
+			Port:              envInt("SERVER_PORT", 8081),
 			ReadTimeout:       15 * time.Second,
 			WriteTimeout:      15 * time.Second,
 			IdleTimeout:       60 * time.Second,
@@ -139,36 +107,16 @@ func DefaultConfig(appName string) *Config {
 			ResourceAttrs: map[string]string{},
 		},
 	}
-	cfg.Database = DatabaseConfig{
-		Driver:          "postgres",
-		Host:            getEnv("DB_HOST", "localhost"),
-		Port:            envInt("DB_PORT",5432),
-		User:            getEnv("DB_USER", "postgres"),
-		Password:        getEnv("DB_PASSWORD", "postgres"),
-		Name:            getEnv("DB_NAME", appName),
-		SSLMode:         getEnv("DB_SSLMODE", "disable"),
-		DSN:             getEnv("DB_DSN", "file:./data/app.db?_foreign_keys=on"),
-		MaxOpenConns:    25,
-		MaxIdleConns:    5,
-		ConnMaxLifetime: 5 * time.Minute,
-		AutoMigrate:     envBool("DB_AUTO_MIGRATE", false),
-		MigrationsPath:  "./migrations",
+	cfg.GRPC = GRPCConfig{Port: envInt("GRPC_PORT", 9091)}
+	cfg.Mongo = MongoConfig{
+		URI:      getEnv("MONGO_URI", "mongodb://localhost:27017"),
+		Database: getEnv("MONGO_DB", appName),
 	}
-	cfg.Cache = CacheConfig{
-		Addr:     getEnv("REDIS_ADDR", "localhost:6379"),
-		Password: getEnv("REDIS_PASSWORD", ""),
-		DB:       envInt("REDIS_DB", 0),
+	cfg.RabbitMQ = RabbitMQConfig{
+		URL: getEnv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/"),
 	}
-	cfg.Queue = QueueConfig{
-		RedisAddr:     getEnv("REDIS_ADDR", "localhost:6379"),
-		RedisPassword: getEnv("REDIS_PASSWORD", ""),
-		RedisDB:       envInt("REDIS_DB", 0),
-		Prefix:        appName,
-	}
-	cfg.Worker = WorkerConfig{
-		NumWorkers:   5,
-		PollInterval: time.Second,
-		QueueName:    "tasks",
+	cfg.Inventory = InventoryConfig{
+		ServiceURL: getEnv("INVENTORY_SERVICE_URL", "http://localhost:8084"),
 	}
 	return cfg
 }

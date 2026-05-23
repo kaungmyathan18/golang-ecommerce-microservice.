@@ -1,0 +1,8 @@
+/bin/
+/data/
+*.db
+.env
+dist/
+tmp/
+coverage.out
+build-errors.log

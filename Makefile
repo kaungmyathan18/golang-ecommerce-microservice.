@@ -1,4 +1,4 @@
-.PHONY: proto proto-install e2e loadtest scaffold-all
+.PHONY: proto proto-install e2e loadtest loadtest-realistic k8s-build k8s-deploy k8s-delete scaffold-all
 
 PROTO_DIR := proto/product
 PROTO_OUT := proto/product/pb
@@ -30,6 +30,17 @@ loadtest:
 loadtest-realistic:
 	@chmod +x scripts/load-test.sh
 	@LOAD_SCENARIO=realistic LOAD_WORKERS=20 LOAD_DURATION_SEC=30 ./scripts/load-test.sh
+
+k8s-build:
+	@chmod +x scripts/k8s-build-images.sh
+	@./scripts/k8s-build-images.sh
+
+k8s-deploy:
+	@chmod +x scripts/k8s-deploy-kind.sh
+	@./scripts/k8s-deploy-kind.sh
+
+k8s-delete:
+	kubectl delete -k k8s/overlays/local --ignore-not-found
 
 scaffold-all:
 	@echo "Run scaffold commands manually - see README"

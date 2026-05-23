@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-service
+  namespace: ecommerce
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payment-service
+  template:
+    metadata:
+      labels:
+        app: payment-service
+    spec:
+      containers:
+        - name: payment-service
+          image: ecommerce/payment-service:local
+          ports:
+            - containerPort: 8085
+          env:
+            - name: SERVER_PORT
+              value: "8085"
+            - name: DB_DSN
+              valueFrom:
+                configMapKeyRef:
+                  name: ecommerce-config
+                  key: DB_DSN_PAYMENT
+            - name: DB_AUTO_MIGRATE
+              valueFrom:
+                configMapKeyRef:
+                  name: ecommerce-config
+                  key: DB_AUTO_MIGRATE
+            - name: DB_MIGRATIONS_PATH
+              valueFrom:
+                configMapKeyRef:
+                  name: ecommerce-config
+                  key: DB_MIGRATIONS_PATH
+            - name: RABBITMQ_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: ecommerce-config
+                  key: RABBITMQ_URL
+            - name: PAYMENT_STUB_DELAY_SEC
+              valueFrom:
+                configMapKeyRef:
+                  name: ecommerce-config
+                  key: PAYMENT_STUB_DELAY_SEC
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8085
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8085
+            periodSeconds: 10
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: payment-data
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: payment-data
+  namespace: ecommerce
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment-service
+  namespace: ecommerce
+spec:
+  selector:
+    app: payment-service
+  ports:
+    - port: 8085
+      targetPort: 8085

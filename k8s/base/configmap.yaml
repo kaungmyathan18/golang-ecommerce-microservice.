@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ecommerce-config
+  namespace: ecommerce
+data:
+  RATE_LIMIT_RPM: "10000"
+  OTEL_ENABLED: "false"
+  DB_AUTO_MIGRATE: "true"
+  PAYMENT_STUB_DELAY_SEC: "5"
+  JWT_TTL_HOURS: "24"
+  MONGO_URI: mongodb://mongo:27017
+  MONGO_DB_PRODUCT: product-service
+  MONGO_DB_INVENTORY: inventory-service
+  REDIS_ADDR: redis:6379
+  RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+  DB_HOST: mysql-order
+  DB_PORT: "3306"
+  DB_NAME: order-service
+  PRODUCT_GRPC_ADDR: product-service:9091
+  INVENTORY_GRPC_ADDR: inventory-service:9093
+  INVENTORY_SERVICE_URL: http://inventory-service:8084
+  PAYMENT_SERVICE_URL: http://payment-service:8085
+  PRODUCT_SERVICE_URL: http://product-service:8081
+  ORDER_SERVICE_URL: http://order-service:8082
+  AUTH_SERVICE_URL: http://auth-service:8086
+  DB_DSN_AUTH: file:/data/auth.db?_foreign_keys=on
+  DB_DSN_PAYMENT: file:/data/payments.db?_foreign_keys=on
+  DB_DSN_NOTIFICATION: file:/data/notifications.db?_foreign_keys=on
+  DB_MIGRATIONS_PATH: /app/migrations

@@ -1,4 +1,4 @@
-.PHONY: proto proto-install e2e scaffold-all
+.PHONY: proto proto-install e2e loadtest scaffold-all
 
 PROTO_DIR := proto/product
 PROTO_OUT := proto/product/pb
@@ -22,6 +22,14 @@ proto:
 e2e:
 	@chmod +x scripts/e2e-test.sh
 	@./scripts/e2e-test.sh
+
+loadtest:
+	@chmod +x scripts/load-test.sh
+	@./scripts/load-test.sh
+
+loadtest-realistic:
+	@chmod +x scripts/load-test.sh
+	@LOAD_SCENARIO=realistic LOAD_WORKERS=20 LOAD_DURATION_SEC=30 ./scripts/load-test.sh
 
 scaffold-all:
 	@echo "Run scaffold commands manually - see README"
